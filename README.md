@@ -1,108 +1,93 @@
-# M5 Stick C Plus 2 - HID Password Sender (5 Slots)
+# Mjolnir - Secure HID Password Vault (M5 Stick C Plus 2)
 
-A Bluetooth LE HID keyboard device that sends stored passwords with a button press.
+**Mjolnir** is a secure, stealthy Bluetooth Low Energy (BLE) password vault built for the M5 Stick C Plus 2. It stores up to 5 passwords and types them into any computer (Windows, Mac, Linux, Android) at the press of a button.
 
 ![M5 Stick C Plus 2](https://static-cdn.m5stack.com/resource/docs/products/core/StickCPlus2/img-94a473cb-9be6-4a2b-88cd-f6db40f0d11c.webp)
 
-## Features
+## 🛡️ Key Features
 
-- 🔑 **5 Password Slots** - Store up to 5 different passwords
-- 📱 **BLE HID Keyboard** - Appears as a Bluetooth keyboard to your PC
-- 🖥️ **LCD Display** - Shows connection status, battery level, and current slot
-- ⚡ **One-Button Send** - Press Button A to type your password instantly
-- 💾 **Persistent Storage** - Passwords saved in NVS (survives power cycles)
-- 🔧 **Serial Configuration** - Easy setup via USB serial commands
+- **🔐 5 Secure Slots**: Store and label up to 5 different passwords (e.g., Work, Personal, AWS).
+- **👻 Stealth Mode**: The device remains **invisible** to Bluetooth scanners until you explicitly activate Pairing Mode.
+- **🔢 PIN Pairing Protection**: Uses BLE Security (Man-In-The-Middle protection) requiring a 6-digit PIN matching, preventing unauthorized connections.
+- **⚡ Smart Power Management**:
+    - **Auto-Dim**: Screen dims to 12% brightness after 30s of inactivity.
+    - **Auto-Sleep**: Display turns off after 60s. Wakes instantly on any button press.
+    - **Brightness Control**: Long-press Button B to cycle brightness (25%, 50%, 75%, 100%).
+- **⌨️ Universal Compatibility**: Works as a standard Generic HID Keyboard. No drivers required.
+- **💾 Persistent Storage**: Passwords are saved in encrypted NVS (Non-Volatile Storage) and survive power cycles.
+- **🔧 Easy Config**: Manage stored passwords via simple USB Serial commands.
 
-## Hardware
+## 🕹️ Controls
 
-| Component | Details |
-|-----------|---------|
-| Device | M5 Stick C Plus 2 |
-| MCU | ESP32-PICO-V3-02 |
-| Display | 135x240 ST7789 LCD |
-| Buttons | A (front), B (side), Power |
+| Button | Action | Description |
+| :--- | :--- | :--- |
+| **Button A** (Front M5) | **Short Press** | **Type Password** for the current slot. |
+| **Button B** (Side) | **Short Press** | **Next Slot** (Cycle through stored passwords). |
+| **Button B** (Side) | **Long Press (>1s)** | **Change Brightness** (25% -> 50% -> 75% -> 100%). |
+| **Power Button** | **Long Press (6s)** | Turn device ON/OFF. |
 
-## Getting Started
+## 🚀 Getting Started
 
-### Prerequisites
-- [PlatformIO](https://platformio.org/) installed
-- USB-C cable
+### 1. Installation
+1. Install [PlatformIO](https://platformio.org/) (VSCode Extension).
+2. Clone this repository:
+   ```bash
+   git clone https://github.com/Kenju-Daw/m5-Stick-C-plus-2_HID_PW_Sender_5_slots.git
+   ```
+3. Open the folder in VSCode.
+4. Build and Upload:
+   ```bash
+   pio run -t upload
+   ```
 
-### Build & Upload
-```bash
-# Clone the repository
-git clone https://github.com/Kenju-Daw/m5-Stick-C-plus-2_HID_PW_Sender_5_slots.git
-cd m5-Stick-C-plus-2_HID_PW_Sender_5_slots
+### 2. Configuration (Serial Mode)
+Connect the device via USB and open a Serial Monitor (baud rate **115200**).
+*Tip: You can use `pio device monitor`*
 
-# Build
-pio run
-
-# Upload to device
-pio run -t upload
-
-# Monitor serial output
-pio device monitor
+**Available Commands:**
+```text
+SET <slot> <password>   : Set password for slot (0-4)
+LABEL <slot> <name>     : Set a friendly name for slot (0-4)
+LIST                    : View all configured slots
+CLEAR <slot>            : Delete password in slot
+CLEARALL                : Factory reset all slots
+HELP                    : Show this help menu
 ```
 
-## Usage
-
-### Button Controls
-| Button | Action |
-|--------|--------|
-| **A** (front) | Send password for current slot |
-| **B** (side) | Cycle to next slot |
-
-### Serial Commands
-Connect via serial monitor (115200 baud) and use:
-
-```
-SET <slot> <password>   - Set password (slot 0-4)
-LABEL <slot> <name>     - Set slot label
-LIST                    - Show all slots
-CLEAR <slot>            - Clear a slot
-CLEARALL                - Clear all slots
-HELP                    - Show help
+**Example:**
+```text
+> SET 0 SuperSecretPassword!
+> LABEL 0 Google Account
+> SET 1 Admin12345
+> LABEL 1 Local Server
 ```
 
-### Example Setup
-```
-SET 0 MySecretPassword123
-LABEL 0 Work PC
-SET 1 AnotherPassword456
-LABEL 1 Home Server
-LIST
-```
+### 3. Pairing (First Time)
+Because Mjolnir is stealthy, it won't show up in your Bluetooth list automatically.
+1. **Wake** the device if it's sleeping.
+2. The screen displays "Disconnected".
+3. *(If not previously paired)* The device will advertise as **"Mjolnir"**.
+4. On your PC, search for Bluetooth devices.
+5. Select **Mjolnir**.
+6. **PIN Check**: The M5 Stick will display a 6-digit PIN. Confirm it matches the one on your PC screen.
+7. Once paired, the status changes to **"Connected"**.
 
-## Pairing
-
-1. Power on the M5 Stick C Plus 2
-2. Open Bluetooth settings on your PC
-3. Look for **"M5-PassKey"** and pair
-4. The LCD will show "Connected" when paired
-5. Open any text field and press Button A to send your password
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 ├── src/
-│   ├── main.cpp              # Main application
-│   ├── config.h              # Configuration
-│   ├── password_manager.cpp  # NVS password storage
-│   ├── password_manager.h
-│   ├── ui_manager.cpp        # LCD display handling
-│   └── ui_manager.h
+│   ├── main.cpp              # Core application logic
+│   ├── config.h              # Pin definitions & Global settings
+│   ├── ui_manager.cpp        # Display & Graphics handling
+│   ├── password_manager.cpp  # NVS Storage handling
+│   └── ble_manager.cpp       # Bluetooth Security & HID logic
 ├── docs/
-│   ├── nvs_schema.md         # Database schema
-│   └── testing.md            # Test procedures
-├── platformio.ini            # Build configuration
-└── README.md
+│   ├── EFFICIENCY_GUIDE.md   # Deep dive into Sleep/Power modes
+│   ├── PROJECT_SKILLS.md     # Technical implementation details
+│   └── ISSUES.md             # Bug tracker & Change log
+├── platformio.ini            # Build Dependencies
+└── README.md                 # This file
 ```
 
-## License
-
-MIT License - feel free to use and modify!
-
-## Credits
-
-- [M5Stack](https://m5stack.com/) for the M5 Stick C Plus 2
-- [ESP32 BLE Keyboard](https://github.com/T-vK/ESP32-BLE-Keyboard) library
+## 📜 License
+MIT License.

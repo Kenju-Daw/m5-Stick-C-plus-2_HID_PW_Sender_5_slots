@@ -143,13 +143,16 @@ void loop() {
          return; 
     }
 
-    // --- 2. HANDLE WAKE / RECONNECT (Any Button) ---
-    if (!isConnected && anyInteraction && uiManager.isSleeping()) {
+    // --- 2. HANDLE WAKE (Any Button) ---
+    if (anyInteraction && uiManager.isSleeping()) {
         uiManager.wake();
-        // If we were sleeping and stealth, try to reconnect (Whitelist)
-        if (!isAdvertising) {
+        
+        // If disconnected and stealth, try to reconnect
+        if (!isConnected && !isAdvertising) {
              startWhitelistAdvertising();
         }
+        
+        // Prevent immediate action processing if we just woke up
         delay(100); 
         return; 
     }

@@ -6,6 +6,18 @@
 
 ---
 
+### ✅ BUG-004: Display does not wake up when connected
+**Status**: Fixed  
+**Priority**: High  
+**Resolved**: 2026-01-21
+
+**Fix Applied**:  
+- Removed `!isConnected` condition from wake handler in `main.cpp`
+- Ensures display wakes up on button press even if BLE is connected
+
+
+---
+
 ## Closed Issues
 
 ### ✅ BUG-001: Enter Key Repeats Continuously After Password Send
