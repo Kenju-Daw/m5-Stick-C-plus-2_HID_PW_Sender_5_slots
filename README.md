@@ -1,82 +1,40 @@
-# Ralph Wiggum Loop - Project Collection
+# M5 Stick C Plus 2 - HID Password Sender (5 Slots)
 
-## What is Ralph Wiggum Loop?
+A Bluetooth LE HID keyboard device that sends stored passwords with a button press.
 
-**Ralph Wiggum Loop** is an iterative AI development methodology popularized by Geoffrey Huntley. It uses continuous AI agent loops to automate software development through persistent iteration until completion criteria are met.
+![M5 Stick C Plus 2](https://static-cdn.m5stack.com/resource/docs/products/core/StickCPlus2/img-94a473cb-9be6-4a2b-88cd-f6db40f0d11c.webp)
 
-Key principles:
-- 🔄 **Persistent Loop** - AI iterates until done
-- 📁 **File-Based Context** - Progress stored in files/git, not AI memory
-- ✅ **Defined Criteria** - Objective, testable completion conditions
-- 🤖 **Autonomous Iteration** - AI self-corrects from errors
+## Features
 
-> See [docs/ralph_wiggum.md](docs/ralph_wiggum.md) for full methodology documentation.
+- 🔑 **5 Password Slots** - Store up to 5 different passwords
+- 📱 **BLE HID Keyboard** - Appears as a Bluetooth keyboard to your PC
+- 🖥️ **LCD Display** - Shows connection status, battery level, and current slot
+- ⚡ **One-Button Send** - Press Button A to type your password instantly
+- 💾 **Persistent Storage** - Passwords saved in NVS (survives power cycles)
+- 🔧 **Serial Configuration** - Easy setup via USB serial commands
 
----
+## Hardware
 
-## Overview
-
-This repository contains ESP32-based utility projects following the Ralph Wiggum Loop methodology. Each project is self-contained, well-documented, and designed for AI-assisted development.
-
----
-
-## Projects
-
-### 1. M5-PassKey (Current)
-**Device**: M5 Stick C Plus 2  
-**Function**: BLE HID Bluetooth Keyboard for password entry
-
-| Feature | Description |
-|---------|-------------|
-| BLE HID | Appears as Bluetooth keyboard to host |
-| Password Slots | 5 configurable password slots |
-| NVS Storage | Persistent password storage |
-| LCD UI | Connection status and slot display |
-| Serial Config | Configure via USB Serial |
-
----
-
-## Project Ideas (Upcoming)
-
-| Project | Device | Description |
-|---------|--------|-------------|
-| M5-TOTP | M5 Stick C Plus 2 | Time-based OTP generator |
-| M5-Macro | M5 Stack Core | Programmable macro keyboard |
-| M5-Beacon | M5 Atom | BLE beacon transmitter |
-| M5-Sensor | M5 Stick C Plus 2 | Environmental sensor with Gemini API |
-
----
-
-## Development Principles
-
-1. **Test-Driven Development (TDD)** - Write tests first, code second
-2. **AI-Friendly Documentation** - All code heavily commented for AI assistance
-3. **NVS Database Schema** - Documented data structures for each project
-4. **Modular Design** - Reusable components across projects
-
----
-
-## Device Compatibility
-
-| Device | ESP32 Chip | Display | Buttons | Notes |
-|--------|-----------|---------|---------|-------|
-| M5 Stick C Plus 2 | ESP32-PICO-V3-02 | 135x240 LCD | A, B, PWR | Main dev device |
-| M5 Stack Core | ESP32 | 320x240 LCD | A, B, C | Larger screen |
-| M5 Atom | ESP32-PICO | None | 1 | Compact |
-
----
+| Component | Details |
+|-----------|---------|
+| Device | M5 Stick C Plus 2 |
+| MCU | ESP32-PICO-V3-02 |
+| Display | 135x240 ST7789 LCD |
+| Buttons | A (front), B (side), Power |
 
 ## Getting Started
 
 ### Prerequisites
-- PlatformIO IDE
+- [PlatformIO](https://platformio.org/) installed
 - USB-C cable
-- M5Stack device
 
-### Quick Start
+### Build & Upload
 ```bash
-# Clone and build
-cd ESP-GEM
+# Clone the repository
+git clone https://github.com/Kenju-Daw/m5-Stick-C-plus-2_HID_PW_Sender_5_slots.git
+cd m5-Stick-C-plus-2_HID_PW_Sender_5_slots
+
+# Build
 pio run
 
 # Upload to device
@@ -86,13 +44,65 @@ pio run -t upload
 pio device monitor
 ```
 
----
+## Usage
 
-## Documentation Structure
+### Button Controls
+| Button | Action |
+|--------|--------|
+| **A** (front) | Send password for current slot |
+| **B** (side) | Cycle to next slot |
+
+### Serial Commands
+Connect via serial monitor (115200 baud) and use:
 
 ```
-docs/
-├── nvs_schema.md      # NVS database schema reference
-├── api_reference.md   # API documentation
-└── testing.md         # Test procedures
+SET <slot> <password>   - Set password (slot 0-4)
+LABEL <slot> <name>     - Set slot label
+LIST                    - Show all slots
+CLEAR <slot>            - Clear a slot
+CLEARALL                - Clear all slots
+HELP                    - Show help
 ```
+
+### Example Setup
+```
+SET 0 MySecretPassword123
+LABEL 0 Work PC
+SET 1 AnotherPassword456
+LABEL 1 Home Server
+LIST
+```
+
+## Pairing
+
+1. Power on the M5 Stick C Plus 2
+2. Open Bluetooth settings on your PC
+3. Look for **"M5-PassKey"** and pair
+4. The LCD will show "Connected" when paired
+5. Open any text field and press Button A to send your password
+
+## Project Structure
+
+```
+├── src/
+│   ├── main.cpp              # Main application
+│   ├── config.h              # Configuration
+│   ├── password_manager.cpp  # NVS password storage
+│   ├── password_manager.h
+│   ├── ui_manager.cpp        # LCD display handling
+│   └── ui_manager.h
+├── docs/
+│   ├── nvs_schema.md         # Database schema
+│   └── testing.md            # Test procedures
+├── platformio.ini            # Build configuration
+└── README.md
+```
+
+## License
+
+MIT License - feel free to use and modify!
+
+## Credits
+
+- [M5Stack](https://m5stack.com/) for the M5 Stick C Plus 2
+- [ESP32 BLE Keyboard](https://github.com/T-vK/ESP32-BLE-Keyboard) library
