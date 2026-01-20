@@ -65,6 +65,42 @@ public:
      * @brief Show "waiting for connection" animation
      */
     void showWaitingAnimation();
+    
+    /**
+     * @brief Set display brightness
+     * @param level Brightness 0-255
+     */
+    void setBrightness(uint8_t level);
+    
+    /**
+     * @brief Cycle through brightness levels (25%, 50%, 75%, 100%)
+     */
+    void cycleBrightness();
+    
+    /**
+     * @brief Turn off display (sleep mode)
+     */
+    void sleep();
+    
+    /**
+     * @brief Wake display from sleep
+     */
+    void wake();
+    
+    /**
+     * @brief Reset activity timer (call on any user interaction)
+     */
+    void resetActivityTimer();
+    
+    /**
+     * @brief Check for timeout and dim/sleep if needed
+     */
+    void checkPowerTimeout();
+    
+    /**
+     * @brief Check if display is currently sleeping
+     */
+    bool isSleeping() { return displaySleeping; }
 
 private:
     bool lastConnected;
@@ -72,6 +108,13 @@ private:
     String lastLabel;
     unsigned long lastUpdate;
     uint8_t animFrame;
+    
+    // Power saving state
+    uint8_t currentBrightness;
+    uint8_t brightnessIndex;
+    bool displaySleeping;
+    bool displayDimmed;
+    unsigned long lastActivityTime;
     
     void drawStatusBar(bool isConnected);
     void drawBatteryLevel();

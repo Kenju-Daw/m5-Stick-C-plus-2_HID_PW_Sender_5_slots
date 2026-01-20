@@ -1,8 +1,14 @@
 #include "ui_manager.h"
 
+// Brightness levels: 25%, 50%, 75%, 100%
+const uint8_t BRIGHTNESS_LEVELS[] = {64, 128, 192, 255};
+const uint8_t NUM_BRIGHTNESS_LEVELS = 4;
+
 UIManager::UIManager() 
     : lastConnected(false), lastSlot(255), lastLabel(""), 
-      lastUpdate(0), animFrame(0) {
+      lastUpdate(0), animFrame(0),
+      currentBrightness(DEFAULT_BRIGHTNESS), brightnessIndex(1),
+      displaySleeping(false), displayDimmed(false), lastActivityTime(0) {
 }
 
 void UIManager::init() {
@@ -12,31 +18,41 @@ void UIManager::init() {
     M5.Display.setTextColor(COLOR_TEXT_PRIMARY, COLOR_BACKGROUND);
     M5.Display.setTextSize(1);
     
+    // Set initial brightness
+    M5.Display.setBrightness(DEFAULT_BRIGHTNESS);
+    currentBrightness = DEFAULT_BRIGHTNESS;
+    lastActivityTime = millis();
+    
     Serial.println("[UIManager] Display initialized");
 }
 
 void UIManager::update(bool isConnected, uint8_t currentSlot, const String& slotLabel, bool hasPassword) {
     unsigned long now = millis();
     
-    // Throttle updates to avoid flicker
-    if (now - lastUpdate < UI_UPDATE_INTERVAL_MS) {
-        // Only force update if state changed
-        if (isConnected == lastConnected && currentSlot == lastSlot && slotLabel == lastLabel) {
-            return;
-        }
+    // Check if state actually changed
+    bool stateChanged = (isConnected != lastConnected) || 
+                        (currentSlot != lastSlot) || 
+                        (slotLabel != lastLabel);
+    
+    // Throttle updates - only update if enough time passed OR state changed
+    if (!stateChanged && (now - lastUpdate < UI_UPDATE_INTERVAL_MS)) {
+        return;
     }
     
-    lastUpdate = now;
-    lastConnected = isConnected;
-    lastSlot = currentSlot;
-    lastLabel = slotLabel;
-    
-    // Clear and redraw
-    M5.Display.fillScreen(COLOR_BACKGROUND);
-    
-    drawStatusBar(isConnected);
-    drawMainContent(slotLabel, hasPassword, currentSlot);
-    drawHintBar(isConnected, hasPassword);
+    // Only do full redraw if state changed (reduces flicker)
+    if (stateChanged) {
+        lastUpdate = now;
+        lastConnected = isConnected;
+        lastSlot = currentSlot;
+        lastLabel = slotLabel;
+        
+        // Clear and redraw only when state changes
+        M5.Display.fillScreen(COLOR_BACKGROUND);
+        
+        drawStatusBar(isConnected);
+        drawMainContent(slotLabel, hasPassword, currentSlot);
+        drawHintBar(isConnected, hasPassword);
+    }
 }
 
 void UIManager::drawStatusBar(bool isConnected) {
@@ -187,3 +203,81 @@ void UIManager::showWaitingAnimation() {
     M5.Display.setCursor(SCREEN_WIDTH / 2 + 50, 7);
     M5.Display.print(dots + "   ");
 }
+
+// ============== Power Saving Methods ==============
+
+void UIManager::setBrightness(uint8_t level) {
+    currentBrightness = level;
+    M5.Display.setBrightness(level);
+    Serial.printf("[UI] Brightness set to %d\n", level);
+}
+
+void UIManager::cycleBrightness() {
+    brightnessIndex = (brightnessIndex + 1) % NUM_BRIGHTNESS_LEVELS;
+    uint8_t newBrightness = BRIGHTNESS_LEVELS[brightnessIndex];
+    setBrightness(newBrightness);
+    
+    // Show brightness indicator briefly
+    M5.Display.fillRect(SCREEN_WIDTH/2 - 50, SCREEN_HEIGHT/2 - 10, 100, 20, COLOR_ACCENT);
+    M5.Display.setTextColor(COLOR_TEXT_PRIMARY, COLOR_ACCENT);
+    M5.Display.setCursor(SCREEN_WIDTH/2 - 40, SCREEN_HEIGHT/2 - 5);
+    M5.Display.printf("Brightness: %d%%", (newBrightness * 100) / 255);
+    delay(500);
+    
+    // Force redraw
+    lastUpdate = 0;
+    lastSlot = 255;
+    
+    resetActivityTimer();
+}
+
+void UIManager::sleep() {
+    if (!displaySleeping) {
+        displaySleeping = true;
+        M5.Display.setBrightness(0);
+        M5.Display.sleep();
+        Serial.println("[UI] Display sleeping");
+    }
+}
+
+void UIManager::wake() {
+    if (displaySleeping) {
+        displaySleeping = false;
+        displayDimmed = false;
+        M5.Display.wakeup();
+        M5.Display.setBrightness(currentBrightness);
+        Serial.println("[UI] Display woke up");
+        
+        // Force full redraw
+        lastUpdate = 0;
+        lastSlot = 255;
+    } else if (displayDimmed) {
+        displayDimmed = false;
+        M5.Display.setBrightness(currentBrightness);
+        Serial.println("[UI] Display un-dimmed");
+    }
+    
+    resetActivityTimer();
+}
+
+void UIManager::resetActivityTimer() {
+    lastActivityTime = millis();
+}
+
+void UIManager::checkPowerTimeout() {
+    if (displaySleeping) return;  // Already sleeping
+    
+    unsigned long elapsed = millis() - lastActivityTime;
+    
+    // Sleep after SLEEP_TIMEOUT_MS
+    if (elapsed >= SLEEP_TIMEOUT_MS) {
+        sleep();
+    }
+    // Dim after DIM_TIMEOUT_MS
+    else if (elapsed >= DIM_TIMEOUT_MS && !displayDimmed) {
+        displayDimmed = true;
+        M5.Display.setBrightness(DIM_BRIGHTNESS);
+        Serial.println("[UI] Display dimmed");
+    }
+}
+

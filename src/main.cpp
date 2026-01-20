@@ -28,14 +28,14 @@
  */
 
 #include <M5StickCPlus2.h>
-#include <BleKeyboard.h>
+#include "BleKeyboardWithCaps.h"
 #include "config.h"
 #include "password_manager.h"
 #include "ui_manager.h"
 #include "version.h"
 
 // Global objects
-BleKeyboard bleKeyboard(DEVICE_NAME, DEVICE_MANUFACTURER, 100);
+BleKeyboardWithCaps bleKeyboard(DEVICE_NAME, DEVICE_MANUFACTURER, 100);
 PasswordManager passwordManager;
 UIManager uiManager;
 
@@ -93,11 +93,28 @@ void loop() {
     // Update M5 button states
     M5.update();
     
+    // Check for power timeout (dim/sleep)
+    uiManager.checkPowerTimeout();
+    
+    // Handle any button press - wake display first
+    bool anyButtonPressed = M5.BtnA.wasPressed() || M5.BtnB.wasPressed() || M5.BtnB.wasReleased();
+    if (anyButtonPressed && uiManager.isSleeping()) {
+        uiManager.wake();
+        delay(100);  // Debounce
+        return;  // Don't process button action on wake
+    }
+    
+    // Reset activity timer on any button press
+    if (anyButtonPressed) {
+        uiManager.resetActivityTimer();
+    }
+    
     bool isConnected = bleKeyboard.isConnected();
     
     // Connection state change notification
     if (isConnected != wasConnected) {
         wasConnected = isConnected;
+        uiManager.resetActivityTimer();  // Wake on connection change
         if (isConnected) {
             Serial.println("[BLE] Device connected!");
         } else {
@@ -110,18 +127,26 @@ void loop() {
         handleButtonA();
     }
     
-    // Handle Button B - Change slot
-    if (M5.BtnB.wasPressed()) {
+    // Handle Button B - Short press: change slot, Long press: brightness
+    if (M5.BtnB.pressedFor(LONG_PRESS_MS)) {
+        // Long press - cycle brightness
+        uiManager.cycleBrightness();
+        while (M5.BtnB.isPressed()) {
+            M5.update();
+            delay(10);
+        }  // Wait for release
+    } else if (M5.BtnB.wasPressed()) {
         handleButtonB();
     }
     
     // Process serial commands
     if (Serial.available()) {
         processSerialCommand();
+        uiManager.resetActivityTimer();
     }
     
-    // Update UI periodically
-    if (millis() - lastUIUpdate > UI_UPDATE_INTERVAL_MS) {
+    // Update UI periodically (only if not sleeping)
+    if (!uiManager.isSleeping() && millis() - lastUIUpdate > UI_UPDATE_INTERVAL_MS) {
         lastUIUpdate = millis();
         uiManager.update(
             isConnected,
@@ -139,6 +164,18 @@ void loop() {
  * @brief Handle Button A press - Send password
  */
 void handleButtonA() {
+    // Cooldown protection to prevent repeated sends
+    static unsigned long lastSendTime = 0;
+    unsigned long now = millis();
+    
+    if (now - lastSendTime < PASSWORD_COOLDOWN_MS) {
+        Serial.println("[BTN] Cooldown active - ignoring");
+        return;
+    }
+    
+    // Set cooldown IMMEDIATELY to prevent race condition
+    lastSendTime = now;
+    
     Serial.println("[BTN] Button A pressed");
     
     if (!bleKeyboard.isConnected()) {
@@ -157,16 +194,39 @@ void handleButtonA() {
     Serial.printf("[BTN] Sending password for slot %d (%d chars)\n", 
                   currentSlot, password.length());
     
-    // Send the password
-    bleKeyboard.print(password);
+    // Type password at human speed (~400 WPM = ~33 chars/sec = 30ms per char)
+    for (int i = 0; i < password.length(); i++) {
+        char c = password[i];
+
+        // Smart Caps Lock handling: If host Caps Lock is ON, we must invert 
+        // the case of letters we send so the host receives the intended case.
+        if (bleKeyboard.isCapsLock()) {
+            if (c >= 'a' && c <= 'z') {
+                c = c - 32; // toupper: 'a' -> 'A' (Host Caps -> 'a')
+            } else if (c >= 'A' && c <= 'Z') {
+                c = c + 32; // tolower: 'A' -> 'a' (Host Caps -> 'A')
+            }
+        }
+
+        bleKeyboard.write(c);
+        delay(30);  // 30ms between keystrokes for realistic typing
+    }
     
-    // Optionally press Enter
-    bleKeyboard.write(KEY_RETURN);
+    // Wait a moment before pressing Enter
+    delay(100);
+    
+    // Press and RELEASE Enter explicitly (prevents stuck key)
+    bleKeyboard.press(KEY_RETURN);
+    delay(50);  // Hold for 50ms
+    bleKeyboard.release(KEY_RETURN);
+    
+    // Ensure all keys released
+    bleKeyboard.releaseAll();
+    
+    Serial.println("[BTN] Password sent!");
     
     // Visual feedback
     uiManager.showSendFeedback();
-    
-    Serial.println("[BTN] Password sent!");
 }
 
 /**

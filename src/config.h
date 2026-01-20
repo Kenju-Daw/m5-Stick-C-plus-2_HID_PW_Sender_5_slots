@@ -25,9 +25,16 @@
 #define COLOR_ACCENT 0x001F      // Blue
 
 // Timing
-#define UI_UPDATE_INTERVAL_MS 100
+#define UI_UPDATE_INTERVAL_MS 500   // Reduced from 100ms to prevent flicker
 #define FEEDBACK_FLASH_MS 200
 #define LONG_PRESS_MS 1000
+#define PASSWORD_COOLDOWN_MS 1500   // Cooldown after sending password
+
+// Power Saving
+#define DEFAULT_BRIGHTNESS 128      // 50% brightness (0-255)
+#define DIM_BRIGHTNESS 32           // Dimmed brightness
+#define DIM_TIMEOUT_MS 30000        // Dim after 30 seconds
+#define SLEEP_TIMEOUT_MS 60000      // Sleep display after 60 seconds
 
 // NVS Namespace
 #define NVS_NAMESPACE "passkey"

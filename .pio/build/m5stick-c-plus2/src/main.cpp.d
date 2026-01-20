@@ -243,6 +243,7 @@
  .pio/libdeps/m5stick-c-plus2/M5Unified/src/utility/imu/IMU_Base.hpp \
  .pio/libdeps/m5stick-c-plus2/M5Unified/src/utility/imu/../I2C_Class.hpp \
  .pio/libdeps/m5stick-c-plus2/M5Unified/src/utility/IOExpander_Base.hpp \
+ src/BleKeyboardWithCaps.h \
  .pio/libdeps/m5stick-c-plus2/ESP32\ BLE\ Keyboard/BleKeyboard.h \
  C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLEHIDDevice.h \
  C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLECharacteristic.h \
