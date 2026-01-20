@@ -239,6 +239,20 @@ void UIManager::showSlotChangeFeedback() {
     lastSlot = 255;
 }
 
+void UIManager::showLockingFeedback() {
+    // Red flash with "LOCKED" text
+    M5.Display.fillScreen(COLOR_DISCONNECTED); // Red background
+    M5.Display.setTextColor(COLOR_TEXT_PRIMARY, COLOR_DISCONNECTED);
+    M5.Display.setTextSize(3);
+    M5.Display.setCursor(40, 60);
+    M5.Display.print("LOCKED");
+    delay(500);
+    
+    // Force redraw
+    lastUpdate = 0;
+    lastSlot = 255;
+}
+
 void UIManager::showError(const String& message) {
     M5.Display.fillScreen(COLOR_DISCONNECTED);
     M5.Display.setTextSize(2);

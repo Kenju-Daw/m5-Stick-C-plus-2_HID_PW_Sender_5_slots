@@ -54,6 +54,11 @@ public:
      * @brief Show visual feedback when slot changed
      */
     void showSlotChangeFeedback();
+
+    /**
+     * @brief Show locking feedback (Red FLASH + LOCKED)
+     */
+    void showLockingFeedback();
     
     /**
      * @brief Show error message

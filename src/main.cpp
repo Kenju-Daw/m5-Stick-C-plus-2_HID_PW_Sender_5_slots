@@ -59,11 +59,13 @@ const unsigned long ADVERTISING_TIMEOUT_MS = 30000; // 30 seconds pairing window
 // Function declarations
 void handleButtonA();
 void handleButtonB();
+void handleButtonALongPress();
 void processSerialCommand();
 void printHelp();
 void listSlots();
 void startPairingMode();
 void startWhitelistAdvertising();
+void restoreWhitelist();
 
 void setup() {
     // Initialize M5StickCPlus2
@@ -183,7 +185,16 @@ void loop() {
     
     // --- 5. NORMAL OPERATION (Connected) ---
     if (isConnected) {
-        if (btnA_Pressed) handleButtonA();
+        // Handle Button A - Short: Password, Long: Lock PC
+        if (M5.BtnA.pressedFor(LONG_PRESS_MS)) {
+             Serial.println("[BTN] Button A LONG PRESS -> Lock PC");
+             handleButtonALongPress();
+             // Wait for release to avoid double trigger
+             while (M5.BtnA.isPressed()) { M5.update(); delay(10); }
+        }
+        else if (btnA_Pressed) {
+             handleButtonA();
+        }
         
         if (btnB_Held) {
             uiManager.cycleBrightness();
@@ -276,6 +287,27 @@ void startWhitelistAdvertising() {
     advertisingStartTime = millis();
     uiManager.setUIState(UIManager::STATE_RECONNECTING);
     uiManager.wake();
+    uiManager.wake();
+}
+
+/**
+ * @brief Handle Button A LONG press - Lock PC (Win+L)
+ */
+void handleButtonALongPress() {
+    if (!bleKeyboard.isConnected()) {
+        uiManager.showError("Not connected");
+        return;
+    }
+
+    Serial.println("[BTN] Sending Win+L (Lock PC)");
+    
+    // Send Windows + L
+    bleKeyboard.press(KEY_LEFT_GUI);
+    bleKeyboard.press('l');
+    delay(100);
+    bleKeyboard.releaseAll();
+    
+    uiManager.showLockingFeedback();
 }
 
 /**
