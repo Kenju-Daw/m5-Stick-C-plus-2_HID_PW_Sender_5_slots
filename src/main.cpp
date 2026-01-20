@@ -29,6 +29,10 @@
 
 #include <M5StickCPlus2.h>
 #include "BleKeyboardWithCaps.h"
+#include <BLEDevice.h>
+#include <BLESecurity.h>
+#include "esp_gap_ble_api.h"
+#include "SecurityCallbacks.h"
 #include "config.h"
 #include "password_manager.h"
 #include "ui_manager.h"
@@ -39,10 +43,18 @@ BleKeyboardWithCaps bleKeyboard(DEVICE_NAME, DEVICE_MANUFACTURER, 100);
 PasswordManager passwordManager;
 UIManager uiManager;
 
+// Security Callbacks
+SecurityCallbacks* securityCallbacks;
+
 // State variables
 uint8_t currentSlot = DEFAULT_PASSWORD_SLOT;
 bool wasConnected = false;
 unsigned long lastUIUpdate = 0;
+
+// Security State
+bool isAdvertising = false;
+unsigned long advertisingStartTime = 0;
+const unsigned long ADVERTISING_TIMEOUT_MS = 30000; // 30 seconds pairing window
 
 // Function declarations
 void handleButtonA();
@@ -50,6 +62,8 @@ void handleButtonB();
 void processSerialCommand();
 void printHelp();
 void listSlots();
+void startPairingMode();
+void startWhitelistAdvertising();
 
 void setup() {
     // Initialize M5StickCPlus2
@@ -61,7 +75,7 @@ void setup() {
     
     Serial.println();
     Serial.println("================================");
-    Serial.println("  M5 PassKey - BLE Password Sender");
+    Serial.println("  Mjolnir - BLE Password Sender");
     Serial.printf("  Version: %s\n", VERSION_STRING);
     Serial.printf("  Build: %s %s\n", BUILD_DATE, BUILD_TIME);
     Serial.println("================================");
@@ -73,70 +87,123 @@ void setup() {
     // Initialize UI
     uiManager.init();
     
-    // Initialize BLE Keyboard
+    // --- SECURITY SETUP ---
+    Serial.println("[SEC] Initializing BLE Security...");
+    
+    // 1. Manually Init BLE Device first
+    BLEDevice::init(DEVICE_NAME);
+    
+    // 2. Configure Encryption levels
+    BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
+    
+    // 3. Set Custom Security Callbacks
+    securityCallbacks = new SecurityCallbacks();
+    BLEDevice::setSecurityCallbacks(securityCallbacks);
+    
+    // 4. Start BleKeyboard (starts advertising automatically)
     Serial.println("[BLE] Starting Bluetooth keyboard...");
     bleKeyboard.begin();
     
-    // Initial UI update
-    uiManager.update(
-        false, 
-        currentSlot, 
-        passwordManager.getLabel(currentSlot),
-        passwordManager.hasPassword(currentSlot)
-    );
+    // 5. Configure Security Parameters (must happen after BLE init)
+    BLESecurity *pSecurity = new BLESecurity();
+    pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
+    pSecurity->setCapability(ESP_IO_CAP_OUT); // Display Only (We show PIN)
+    pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
     
-    Serial.println("[SETUP] Ready! Type HELP for commands.");
+    // 6. AUTO-CONNECT MODE: Start Whitelist Advertising immediately
+    Serial.println("[SEC] Starting Auto-Connect (Whitelist Advertising)");
+    
+    // We reuse the whitelist start logic but need to ensure it doesn't timeout instantly if loop hasn't started
+    // Actually, calling startWhitelistAdvertising() sets everything up perfectly.
+    startWhitelistAdvertising();
+    
+    Serial.println("[SETUP] Ready! Auto-connecting or Hold A+B to Pair.");
     Serial.println();
 }
 
 void loop() {
-    // Update M5 button states
     M5.update();
     
-    // Check for power timeout (dim/sleep)
-    uiManager.checkPowerTimeout();
-    
-    // Handle any button press - wake display first
-    bool anyButtonPressed = M5.BtnA.wasPressed() || M5.BtnB.wasPressed() || M5.BtnB.wasReleased();
-    if (anyButtonPressed && uiManager.isSleeping()) {
-        uiManager.wake();
-        delay(100);  // Debounce
-        return;  // Don't process button action on wake
-    }
-    
-    // Reset activity timer on any button press
-    if (anyButtonPressed) {
-        uiManager.resetActivityTimer();
-    }
-    
     bool isConnected = bleKeyboard.isConnected();
+    bool btnA_Pressed = M5.BtnA.wasPressed();
+    bool btnB_Pressed = M5.BtnB.wasPressed();
+    bool btnB_Held = M5.BtnB.pressedFor(LONG_PRESS_MS);
+    bool anyInteraction = btnA_Pressed || btnB_Pressed; // Wake trigger
+
+    // --- 1. HANDLE PAIRING MODE ACTIVATION (Hold A+B) ---
+    if (!isConnected && M5.BtnA.isPressed() && M5.BtnB.isPressed()) {
+         if (!isAdvertising || uiManager.getUIState() != UIManager::STATE_PAIRING_WAIT) {
+             startPairingMode(); // Force Open Advertising
+         }
+         advertisingStartTime = millis(); // Keep resetting timer while holding
+         delay(100);
+         return; 
+    }
+
+    // --- 2. HANDLE WAKE / RECONNECT (Any Button) ---
+    if (!isConnected && anyInteraction && uiManager.isSleeping()) {
+        uiManager.wake();
+        // If we were sleeping and stealth, try to reconnect (Whitelist)
+        if (!isAdvertising) {
+             startWhitelistAdvertising();
+        }
+        delay(100); 
+        return; 
+    }
     
-    // Connection state change notification
+    // --- 3. HANDLE ADVERTISING TIMEOUT ---
+    if (isAdvertising) {
+        bool isPairing = (uiManager.getUIState() == UIManager::STATE_PAIRING_WAIT);
+        unsigned long timeout = isPairing ? ADVERTISING_TIMEOUT_MS : RECONNECT_WINDOW_MS;
+        
+        if (millis() - advertisingStartTime > timeout) {
+            Serial.println("[SEC] Advertising Timeout -> Stealth Mode");
+            BLEDevice::getAdvertising()->stop();
+            isAdvertising = false;
+            uiManager.setUIState(UIManager::STATE_STEALTH);
+        }
+    }
+
+    // --- 4. HANDLE CONNECTION CHANGES ---
     if (isConnected != wasConnected) {
         wasConnected = isConnected;
-        uiManager.resetActivityTimer();  // Wake on connection change
+        uiManager.resetActivityTimer();
         if (isConnected) {
             Serial.println("[BLE] Device connected!");
+            isAdvertising = false; 
+            uiManager.setUIState(UIManager::STATE_CONNECTED);
+            uiManager.update(true, currentSlot, passwordManager.getLabel(currentSlot), passwordManager.hasPassword(currentSlot));
         } else {
-            Serial.println("[BLE] Device disconnected");
+            Serial.println("[BLE] Device disconnected -> Stealth Mode");
+            BLEDevice::getAdvertising()->stop(); // Ensure stops
+            isAdvertising = false;
+            uiManager.setUIState(UIManager::STATE_STEALTH);
         }
     }
     
-    // Handle Button A - Send password
-    if (M5.BtnA.wasPressed()) {
-        handleButtonA();
-    }
-    
-    // Handle Button B - Short press: change slot, Long press: brightness
-    if (M5.BtnB.pressedFor(LONG_PRESS_MS)) {
-        // Long press - cycle brightness
-        uiManager.cycleBrightness();
-        while (M5.BtnB.isPressed()) {
-            M5.update();
-            delay(10);
-        }  // Wait for release
-    } else if (M5.BtnB.wasPressed()) {
-        handleButtonB();
+    // --- 5. NORMAL OPERATION (Connected) ---
+    if (isConnected) {
+        if (btnA_Pressed) handleButtonA();
+        
+        if (btnB_Held) {
+            uiManager.cycleBrightness();
+            while (M5.BtnB.isPressed()) { M5.update(); delay(10); } 
+        } else if (btnB_Pressed) {
+            handleButtonB();
+        }
+        
+        // Standard UI Update
+        if (!uiManager.isSleeping()) {
+            uiManager.update(
+                isConnected,
+                currentSlot,
+                passwordManager.getLabel(currentSlot),
+                passwordManager.hasPassword(currentSlot)
+            );
+        }
+        
+        // Reset activity on interaction
+        if (anyInteraction) uiManager.resetActivityTimer();
     }
     
     // Process serial commands
@@ -145,19 +212,70 @@ void loop() {
         uiManager.resetActivityTimer();
     }
     
-    // Update UI periodically (only if not sleeping)
-    if (!uiManager.isSleeping() && millis() - lastUIUpdate > UI_UPDATE_INTERVAL_MS) {
-        lastUIUpdate = millis();
-        uiManager.update(
-            isConnected,
-            currentSlot,
-            passwordManager.getLabel(currentSlot),
-            passwordManager.hasPassword(currentSlot)
-        );
+    // Power management check
+    uiManager.checkPowerTimeout();
+    
+    delay(10);
+}
+
+void startPairingMode() {
+    Serial.println("[SEC] Starting PAIRING Mode (Open Advertising)");
+    BLEDevice::getAdvertising()->stop(); // Stop current if any
+    
+    // OPEN Advertising (Allow new connections)
+    BLEDevice::getAdvertising()->setScanFilter(false, false); 
+    
+    BLEDevice::getAdvertising()->start();
+    isAdvertising = true;
+    advertisingStartTime = millis();
+    uiManager.setUIState(UIManager::STATE_PAIRING_WAIT);
+    uiManager.wake();
+}
+
+void restoreWhitelist() {
+    int dev_num = esp_ble_get_bond_device_num();
+    if (dev_num == 0) {
+        Serial.println("[SEC] No bonded devices found.");
+        return;
+    }
+
+    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+    if (!dev_list) {
+        Serial.println("[SEC] Failed to allocate memory for bond list");
+        return;
+    }
+
+    esp_err_t err = esp_ble_get_bond_device_list(&dev_num, dev_list);
+    if (err == ESP_OK) {
+        Serial.printf("[SEC] restoring %d bonded devices to whitelist...\n", dev_num);
+        for (int i = 0; i < dev_num; i++) {
+            BLEAddress addr(dev_list[i].bd_addr);
+            BLEDevice::whiteListAdd(addr);
+            Serial.printf("[SEC] Added to Whitelist: %s\n", addr.toString().c_str());
+        }
+    } else {
+        Serial.println("[SEC] Failed to get bond list");
     }
     
-    // Small delay to prevent busy loop
-    delay(10);
+    free(dev_list);
+}
+
+void startWhitelistAdvertising() {
+    Serial.println("[SEC] Starting RECONNECT Mode (Whitelist Advertising)");
+    BLEDevice::getAdvertising()->stop(); // Stop current if any
+    
+    // 1. Restore bonded devices to internal whitelist
+    restoreWhitelist();
+    
+    // 2. WHITELIST Advertising (Only previously bonded devices)
+    // setScanFilter(scanRequestWhitelist, connectWhitelist)
+    BLEDevice::getAdvertising()->setScanFilter(true, true);
+    
+    BLEDevice::getAdvertising()->start();
+    isAdvertising = true;
+    advertisingStartTime = millis();
+    uiManager.setUIState(UIManager::STATE_RECONNECTING);
+    uiManager.wake();
 }
 
 /**

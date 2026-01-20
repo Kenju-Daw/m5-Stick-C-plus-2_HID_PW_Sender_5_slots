@@ -264,6 +264,20 @@
  C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLE2902.h \
  C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/HIDTypes.h \
  C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLECharacteristic.h \
- src/config.h src/password_manager.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLEDevice.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/bt/host/bluedroid/api/include/api/esp_gattc_api.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/bt/include/esp32/include/esp_bt.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_system/include/esp_task.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos/FreeRTOSConfig.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLEClient.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLERemoteService.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLERemoteCharacteristic.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLERemoteDescriptor.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLEAdvertisedDevice.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLEScan.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLEUtils.h \
+ C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src/BLESecurity.h \
+ src/SecurityCallbacks.h src/ui_manager.h src/config.h \
+ src/password_manager.h \
  C:/Users/kjara/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src/Preferences.h \
- src/ui_manager.h include/version.h
+ include/version.h

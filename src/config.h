@@ -2,8 +2,8 @@
 #define CONFIG_H
 
 // Device Configuration
-#define DEVICE_NAME "M5-PassKey"
-#define DEVICE_MANUFACTURER "M5Stack"
+#define DEVICE_NAME "Mjolnir"
+#define DEVICE_MANUFACTURER "Thor"
 
 // Password Slots
 #define MAX_PASSWORD_SLOTS 5
@@ -35,6 +35,11 @@
 #define DIM_BRIGHTNESS 32           // Dimmed brightness
 #define DIM_TIMEOUT_MS 30000        // Dim after 30 seconds
 #define SLEEP_TIMEOUT_MS 60000      // Sleep display after 60 seconds
+
+// Security Configuration
+#define RECONNECT_WINDOW_MS 60000   // 60s advertising window on wake/unlock
+#define PIN_DISPLAY_MS 30000        // Keep PIN visible for 30s
+
 
 // NVS Namespace
 #define NVS_NAMESPACE "passkey"

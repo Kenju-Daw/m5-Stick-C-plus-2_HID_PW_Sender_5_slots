@@ -23,10 +23,72 @@ void UIManager::init() {
     currentBrightness = DEFAULT_BRIGHTNESS;
     lastActivityTime = millis();
     
+    // Initial State
+    setUIState(STATE_STEALTH);
+    
     Serial.println("[UIManager] Display initialized");
 }
 
+void UIManager::setUIState(UIState state) {
+    currentState = state;
+    
+    // Reset update trackers/timer
+    lastUpdate = millis();
+    lastSlot = 255;
+    
+    // Only clear if screen changes logic requires it
+    // For specific screens we fill inside the helper
+    if (state != STATE_CONNECTED && state != STATE_PAIRING_SUCCESS) {
+         M5.Display.fillScreen(COLOR_BACKGROUND); 
+    }
+
+    switch (state) {
+        case STATE_STEALTH:
+            showStealthMode();
+            break;
+        case STATE_RECONNECTING:
+            showWaitingAnimation(); 
+            M5.Display.setTextColor(COLOR_WAITING, COLOR_BACKGROUND);
+            M5.Display.setTextSize(2);
+            M5.Display.setCursor(20, 40);
+            M5.Display.print("Wake & Connect");
+            M5.Display.setTextSize(1);
+            M5.Display.setCursor(30, 80);
+            M5.Display.print("Searching for PC...");
+            break;
+        case STATE_PAIRING_WAIT:
+            showPairingMode();
+            break;
+        case STATE_SHOW_PIN:
+             // PIN is handled by showPairingPin
+            break;
+        case STATE_PAIRING_SUCCESS:
+            showPairingSuccess(); 
+            break;
+        case STATE_CONNECTED:
+            // Standard UI will pick this up
+            break;
+    }
+}
+
 void UIManager::update(bool isConnected, uint8_t currentSlot, const String& slotLabel, bool hasPassword) {
+    // SECURITY/TRANSITION LOGIC
+    if (currentState == STATE_PAIRING_SUCCESS) {
+         // Non-blocking wait for 2 seconds
+         if (millis() - lastUpdate > 2000) {
+             setUIState(STATE_CONNECTED);
+         }
+         return; 
+    }
+    
+    // Ignore updates during locked states
+    if (currentState == STATE_STEALTH || 
+        currentState == STATE_PAIRING_WAIT || 
+        currentState == STATE_SHOW_PIN ||
+        currentState == STATE_RECONNECTING) {
+        return; 
+    }
+
     unsigned long now = millis();
     
     // Check if state actually changed
@@ -202,6 +264,79 @@ void UIManager::showWaitingAnimation() {
     M5.Display.setTextColor(COLOR_WAITING, COLOR_BACKGROUND);
     M5.Display.setCursor(SCREEN_WIDTH / 2 + 50, 7);
     M5.Display.print(dots + "   ");
+}
+
+void UIManager::showPairingPin(uint32_t pin) {
+    M5.Display.fillScreen(COLOR_BACKGROUND);
+    
+    M5.Display.setTextColor(COLOR_ACCENT, COLOR_BACKGROUND);
+    M5.Display.setTextSize(2);
+    M5.Display.setCursor(10, 20);
+    M5.Display.print("Enter on PC:");
+    
+    M5.Display.setTextColor(COLOR_TEXT_PRIMARY, COLOR_BACKGROUND);
+    M5.Display.setTextSize(4);
+    M5.Display.setCursor(40, 60);
+    M5.Display.printf("%06d", pin);
+    
+    // Force redraw after
+    lastUpdate = 0;
+    lastSlot = 255;
+}
+
+void UIManager::showPairingSuccess() {
+    M5.Display.fillScreen(COLOR_CONNECTED);
+    M5.Display.setTextColor(COLOR_TEXT_PRIMARY, COLOR_CONNECTED);
+    M5.Display.setTextSize(3);
+    M5.Display.setCursor(30, 60);
+    M5.Display.print("PAIRED!");
+    // Delay handled by state machine
+    
+    // Force redraw
+    lastUpdate = 0;
+    lastSlot = 255;
+}
+
+void UIManager::showStealthMode() {
+    M5.Display.fillScreen(COLOR_BACKGROUND);
+    
+    // Icon
+    M5.Display.setTextSize(1);
+    M5.Display.setTextColor(COLOR_TEXT_SECONDARY, COLOR_BACKGROUND);
+    M5.Display.setCursor(10, 10);
+    M5.Display.print("[STEALTH MODE]");
+    
+    M5.Display.setTextColor(COLOR_TEXT_PRIMARY, COLOR_BACKGROUND);
+    M5.Display.setTextSize(2);
+    M5.Display.setCursor(20, 50);
+    M5.Display.print("Advertising");
+    M5.Display.setCursor(50, 80);
+    M5.Display.print("DISABLED");
+    
+    M5.Display.setTextSize(1);
+    M5.Display.setTextColor(COLOR_ACCENT, COLOR_BACKGROUND);
+    M5.Display.setCursor(10, 110);
+    M5.Display.print("Hold A+B to Pair");
+    
+    // Reset state to ensure full redraw when exiting
+    lastUpdate = 0;
+    lastSlot = 255;
+}
+
+void UIManager::showPairingMode() {
+    M5.Display.fillScreen(COLOR_WAITING);
+    M5.Display.setTextColor(COLOR_BACKGROUND, COLOR_WAITING);
+    M5.Display.setTextSize(2);
+    M5.Display.setCursor(30, 40);
+    M5.Display.print("PAIRING MODE");
+    
+    M5.Display.setTextSize(1);
+    M5.Display.setCursor(40, 80);
+    M5.Display.print("Discoverable...");
+    
+    delay(1000);
+    lastUpdate = 0;
+    lastSlot = 255;
 }
 
 // ============== Power Saving Methods ==============

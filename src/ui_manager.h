@@ -62,6 +62,27 @@ public:
     void showError(const String& message);
     
     /**
+     * @brief Show pairing PIN (MITM protection)
+     * @param pin The 6-digit PIN to display
+     */
+    void showPairingPin(uint32_t pin);
+
+    /**
+     * @brief Show pairing success message
+     */
+    void showPairingSuccess();
+
+    /**
+     * @brief Show "Stealth Mode" screen (Advertising OFF)
+     */
+    void showStealthMode();
+    
+    /**
+     * @brief Show "Pairing Mode" screen (Advertising ON)
+     */
+    void showPairingMode();
+    
+    /**
      * @brief Show "waiting for connection" animation
      */
     void showWaitingAnimation();
@@ -100,10 +121,28 @@ public:
     /**
      * @brief Check if display is currently sleeping
      */
+    /**
+     * @brief Check if display is currently sleeping
+     */
     bool isSleeping() { return displaySleeping; }
 
+    // UI States
+    enum UIState {
+        STATE_STEALTH,      // Logo/Stealth screen
+        STATE_RECONNECTING, // "Reconnecting..." (Whitelist)
+        STATE_PAIRING_WAIT, // "Pairing Mode"
+        STATE_SHOW_PIN,     // Showing PIN (Sticky)
+        STATE_PAIRING_SUCCESS, // Success (non-blocking)
+        STATE_CONNECTED,    // Main Interface
+    };
+    
+    void setUIState(UIState state);
+    UIState getUIState() { return currentState; }
+
 private:
+    UIState currentState;
     bool lastConnected;
+    // ... rest of private members (lastSlot, lastLabel etc)
     uint8_t lastSlot;
     String lastLabel;
     unsigned long lastUpdate;
