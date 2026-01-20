@@ -130,6 +130,8 @@ public:
      * @brief Check if display is currently sleeping
      */
     bool isSleeping() { return displaySleeping; }
+    
+    unsigned long getLastActivityTime() { return lastActivityTime; }
 
     // UI States
     enum UIState {

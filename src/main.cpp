@@ -66,6 +66,7 @@ void listSlots();
 void startPairingMode();
 void startWhitelistAdvertising();
 void restoreWhitelist();
+void enterDeepSleep();
 
 void setup() {
     // Initialize M5StickCPlus2
@@ -153,20 +154,31 @@ void loop() {
         return; 
     }
     
-    // --- 3. HANDLE ADVERTISING TIMEOUT ---
+    // --- 3. HANDLE ADVERTISING TIMEOUT (Stealth/Reconnect) ---
     if (isAdvertising) {
         bool isPairing = (uiManager.getUIState() == UIManager::STATE_PAIRING_WAIT);
         unsigned long timeout = isPairing ? ADVERTISING_TIMEOUT_MS : RECONNECT_WINDOW_MS;
         
         if (millis() - advertisingStartTime > timeout) {
-            Serial.println("[SEC] Advertising Timeout -> Stealth Mode");
+            Serial.println("[SEC] Advertising Timeout -> Deep Sleep");
             BLEDevice::getAdvertising()->stop();
             isAdvertising = false;
-            uiManager.setUIState(UIManager::STATE_STEALTH);
+            // Timeout from Reconnect/Pairing -> Go to sleep directly
+            enterDeepSleep();
+        }
+    }
+    // --- 4. HANDLE DISCONNECTED TIMEOUT (Stealth Mode) ---
+    else if (!isConnected) {
+        // If not advertising and not connected (Stealth Mode)
+        // We use the last UI update or activity time
+        unsigned long idleTime = millis() - uiManager.getLastActivityTime();
+        if (idleTime > STEALTH_TIMEOUT_MS) {
+             Serial.println("[PWR] Stealth Timeout -> Deep Sleep");
+             enterDeepSleep();
         }
     }
 
-    // --- 4. HANDLE CONNECTION CHANGES ---
+    // --- 5. HANDLE CONNECTION CHANGES ---
     if (isConnected != wasConnected) {
         wasConnected = isConnected;
         uiManager.resetActivityTimer();
@@ -183,7 +195,16 @@ void loop() {
         }
     }
     
-    // --- 5. NORMAL OPERATION (Connected) ---
+    // --- 6. CHECK FOR CONNECTED DEEP SLEEP (Idle Timeout) ---
+    if (isConnected) {
+        unsigned long idleTime = millis() - uiManager.getLastActivityTime();
+        if (idleTime > DEEP_SLEEP_MS) {
+            Serial.println("[PWR] Idle Timeout -> Deep Sleep");
+            enterDeepSleep();
+        }
+    }
+    
+    // --- 7. NORMAL OPERATION (Connected) ---
     if (isConnected) {
         // Handle Button A - Short: Password, Long: Lock PC
         if (M5.BtnA.pressedFor(LONG_PRESS_MS)) {
@@ -288,6 +309,27 @@ void startWhitelistAdvertising() {
     uiManager.setUIState(UIManager::STATE_RECONNECTING);
     uiManager.wake();
     uiManager.wake();
+}
+
+void enterDeepSleep() {
+    Serial.println("[PWR] Entering Deep Sleep...");
+    
+    // Visual indicator
+    M5.Display.fillScreen(COLOR_BACKGROUND);
+    M5.Display.setTextSize(2);
+    M5.Display.setTextColor(COLOR_TEXT_SECONDARY, COLOR_BACKGROUND);
+    M5.Display.setCursor(80, 60);
+    M5.Display.print("Zzz...");
+    delay(1000);
+    
+    M5.Display.setBrightness(0);
+    M5.Display.sleep();
+    
+    // Configure wake sources: Button A (GP37) or B (GP39)
+    // Buttons pulled HIGH, wake on LOW
+    esp_sleep_enable_ext1_wakeup(((1ULL << 37) | (1ULL << 39)), ESP_EXT1_WAKEUP_ALL_LOW);
+    
+    esp_deep_sleep_start();
 }
 
 /**

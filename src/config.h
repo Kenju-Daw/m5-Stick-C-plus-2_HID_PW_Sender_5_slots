@@ -34,9 +34,11 @@
 #define DEFAULT_BRIGHTNESS 128      // 50% brightness (0-255)
 #define DIM_BRIGHTNESS 32           // Dimmed brightness
 #define DIM_TIMEOUT_MS 30000        // Dim after 30 seconds
-#define SLEEP_TIMEOUT_MS 60000      // Sleep display after 60 seconds
+#define LIGHT_SLEEP_MS 60000        // Screen OFF after 1 minute (Keep connected)
+#define DEEP_SLEEP_MS  300000       // Shutdown after 5 minutes (Disconnect)
 
 // Security Configuration
+#define STEALTH_TIMEOUT_MS 30000    // Deep Sleep if disconnected for 30s
 #define RECONNECT_WINDOW_MS 60000   // 60s advertising window on wake/unlock
 #define PIN_DISPLAY_MS 30000        // Keep PIN visible for 30s
 

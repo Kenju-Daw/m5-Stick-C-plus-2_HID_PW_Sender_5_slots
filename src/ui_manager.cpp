@@ -418,8 +418,8 @@ void UIManager::checkPowerTimeout() {
     
     unsigned long elapsed = millis() - lastActivityTime;
     
-    // Sleep after SLEEP_TIMEOUT_MS
-    if (elapsed >= SLEEP_TIMEOUT_MS) {
+    // Light Sleep (Screen Off) after LIGHT_SLEEP_MS
+    if (elapsed >= LIGHT_SLEEP_MS) {
         sleep();
     }
     // Dim after DIM_TIMEOUT_MS
