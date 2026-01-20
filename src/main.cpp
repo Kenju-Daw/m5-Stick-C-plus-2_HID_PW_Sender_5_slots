@@ -206,15 +206,25 @@ void loop() {
     
     // --- 7. NORMAL OPERATION (Connected) ---
     if (isConnected) {
+        static bool longPressTriggered = false;
+
         // Handle Button A - Short: Password, Long: Lock PC
         if (M5.BtnA.pressedFor(LONG_PRESS_MS)) {
-             Serial.println("[BTN] Button A LONG PRESS -> Lock PC");
-             handleButtonALongPress();
-             // Wait for release to avoid double trigger
-             while (M5.BtnA.isPressed()) { M5.update(); delay(10); }
+             if (!longPressTriggered) {
+                 Serial.println("[BTN] Button A LONG PRESS -> Lock PC");
+                 handleButtonALongPress();
+                 longPressTriggered = true;
+             }
+        }
+        else if (M5.BtnA.wasReleased()) {
+             if (!longPressTriggered) {
+                 // Only send password if it wasn't a long press
+                 handleButtonA();
+             }
+             longPressTriggered = false; // Reset for next interaction
         }
         else if (btnA_Pressed) {
-             handleButtonA();
+            // Do NOTHING on initial press, wait for release or hold
         }
         
         if (btnB_Held) {
@@ -401,7 +411,7 @@ void handleButtonA() {
         }
 
         bleKeyboard.write(c);
-        delay(30);  // 30ms between keystrokes for realistic typing
+        delay(8);  // ~8ms delay (approx 125 chars/sec or 1500 WPM)
     }
     
     // Wait a moment before pressing Enter
